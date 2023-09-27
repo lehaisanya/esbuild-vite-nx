@@ -1,22 +1,16 @@
-import { useState } from 'react';
-import { Button, Group, NumberInput, RangeSlider, Stack } from '@mantine/core';
-import { useUsers } from '../context/users.context';
+import { FC } from 'react';
+import { NumberInput, RangeSlider, Stack } from '@mantine/core';
 
-export const AgeRangeFilter = () => {
-  const { ageFrom, ageTo, setAgeRange } = useUsers();
-  const [ageRange, setAgeRangeValue] = useState<[number, number]>([
-    ageFrom,
-    ageTo,
-  ]);
+interface AgeRangeFilterProps {
+  ageRange: [number, number];
+  onAgeRangeChange: (range: [number, number]) => void;
+}
 
-  const onClear = () => {
-    setAgeRangeValue([18, 200]);
-    setAgeRange([18, 200]);
-  };
-
-  const onDone = () => {
-    setAgeRange(ageRange);
-  };
+export const AgeRangeFilter: FC<AgeRangeFilterProps> = ({
+  ageRange,
+  onAgeRangeChange,
+}) => {
+  const [ageFrom, ageTo] = ageRange;
 
   return (
     <Stack>
@@ -26,7 +20,7 @@ export const AgeRangeFilter = () => {
         minRange={0}
         label={null}
         value={ageRange}
-        onChange={setAgeRangeValue}
+        onChange={onAgeRangeChange}
       />
       <NumberInput
         label="From"
@@ -34,10 +28,11 @@ export const AgeRangeFilter = () => {
         min={18}
         max={ageTo}
         onChange={(value) => {
-          setAgeRangeValue(([_, ageTo]) => {
-            if (typeof value === 'string') return [18, ageTo];
-            return [value, value > ageTo ? value : ageTo];
-          });
+          if (typeof value === 'string') {
+            onAgeRangeChange([18, ageTo]);
+            return;
+          }
+          onAgeRangeChange([value, value > ageTo ? value : ageTo]);
         }}
       />
       <NumberInput
@@ -46,16 +41,13 @@ export const AgeRangeFilter = () => {
         min={ageFrom}
         max={200}
         onChange={(value) => {
-          setAgeRangeValue(([ageFrom, _]) => {
-            if (typeof value === 'string') return [ageFrom, 200];
-            return [value < ageFrom ? value : ageFrom, value];
-          });
+          if (typeof value === 'string') {
+            onAgeRangeChange([ageFrom, 200]);
+            return;
+          }
+          onAgeRangeChange([value < ageFrom ? value : ageFrom, value]);
         }}
       />
-      <Group grow>
-        <Button onClick={onClear}>Clear</Button>
-        <Button onClick={onDone}>Done</Button>
-      </Group>
     </Stack>
   );
 };

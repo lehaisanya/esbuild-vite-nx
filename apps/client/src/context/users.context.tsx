@@ -7,47 +7,43 @@ import {
   useEffect,
   useState,
 } from 'react';
-import { useDebouncedState } from '@mantine/hooks';
 import type { User } from '@app/routes';
 import { UserCreateInput, UserUpdateData, UsersQueryInput } from '@app/schemas';
 import { api } from '../api/api';
 
-type Sorting = {
+export interface Sorting {
   column: string;
   direction: 'asc' | 'desc';
-};
+}
+
+export interface UsersFilters {
+  search: string;
+  gender: 'male' | 'female' | null;
+  isActive: 'active' | 'unactive' | null;
+  age: [number, number];
+}
 
 interface UsersContextState {
   loadingUsers: boolean;
   loadingEditableUser: boolean;
   users: User[];
+  count: number;
   editableUser: User | null;
   page: number;
   pageSize: number;
-  count: number;
+  filters: UsersFilters;
   sorting: Sorting | null;
-  genderFilter: 'male' | 'female' | null;
-  ageFrom: number;
-  ageTo: number;
-  isActiveFilter: 'active' | 'unactive' | null;
 }
 
 interface UsersContextValue extends UsersContextState {
-  search: string;
   createUser: (user: UserCreateInput) => Promise<void>;
   updateUser: (id: number, update: UserUpdateData) => Promise<void>;
   deleteUser: (id: number) => Promise<void>;
   setEditingUser: (id: number) => Promise<void>;
   setPage: (newPage: number) => void;
   setPageSize: (pageSize: number) => void;
-  setSorting: (sorting: Sorting) => void;
-  setSearch: (search: string) => void;
-  setGenderFilter: (gender: 'male' | 'female' | null) => void;
-  setIsActiveFilter: (isActive: 'active' | 'unactive' | null) => void;
-  setAgeFrom: (age: number) => void;
-  setAgeTo: (age: number) => void;
-  setAgeRange: (range: [number, number]) => void;
-  clearAgeFilters: () => void;
+  setFilters: (filters: UsersFilters) => void;
+  triggerSorting: (column: string) => void;
 }
 
 const UsersContext = createContext<UsersContextValue>(null!);
@@ -61,17 +57,16 @@ const defaultContextState: UsersContextState = {
   pageSize: 15,
   count: 0,
   sorting: null,
-  genderFilter: null,
-  ageFrom: 18,
-  ageTo: 200,
-  isActiveFilter: null,
+  filters: {
+    search: '',
+    age: [18, 200],
+    gender: null,
+    isActive: null,
+  },
 };
 
 export const UsersProvider: FC<PropsWithChildren> = ({ children }) => {
   const [state, setState] = useState<UsersContextState>(defaultContextState);
-  const [search, setSearch] = useDebouncedState('', 300);
-  // const [ageFrom, setAgeFrom] = useState(18);
-  // const [ageTo, setAgeTo] = useState(200);
 
   const fetchUsers = useCallback(async () => {
     setState((prev) => ({ ...prev, loadingUsers: true }));
@@ -84,8 +79,8 @@ export const UsersProvider: FC<PropsWithChildren> = ({ children }) => {
       query.offset = (state.page - 1) * state.pageSize;
     }
 
-    if (search) {
-      query.search = search;
+    if (state.filters.search) {
+      query.search = state.filters.search;
     }
 
     if (state.sorting) {
@@ -95,20 +90,21 @@ export const UsersProvider: FC<PropsWithChildren> = ({ children }) => {
       };
     }
 
-    if (state.genderFilter) {
-      query.gender = state.genderFilter;
+    if (state.filters.gender) {
+      query.gender = state.filters.gender;
     }
 
-    if (state.isActiveFilter) {
-      query.isActive = state.isActiveFilter === 'active';
+    if (state.filters.isActive) {
+      query.isActive = state.filters.isActive === 'active';
     }
 
-    if (state.ageFrom !== 18) {
-      query.ageFrom = state.ageFrom;
+    const [ageFrom, ageTo] = state.filters.age;
+    if (ageFrom !== 18) {
+      query.ageFrom = ageFrom;
     }
 
-    if (state.ageTo !== 200) {
-      query.ageTo = state.ageTo;
+    if (ageTo !== 200) {
+      query.ageTo = ageTo;
     }
 
     const { count, users } = await api.user.getUsers.query(query);
@@ -123,16 +119,40 @@ export const UsersProvider: FC<PropsWithChildren> = ({ children }) => {
     state.page,
     state.pageSize,
     state.sorting,
-    search,
-    state.genderFilter,
-    state.isActiveFilter,
-    state.ageFrom,
-    state.ageTo,
+    state.filters.search,
+    state.filters.gender,
+    state.filters.isActive,
+    state.filters.age[0],
+    state.filters.age[1],
   ]);
 
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
+
+  const setFilters = useCallback((filters: UsersFilters) => {
+    setState((prev) => {
+      return { ...prev, filters };
+    });
+  }, []);
+
+  const triggerSorting = useCallback((column: string) => {
+    setState((prev) => {
+      if (!prev.sorting) {
+        return { ...prev, sorting: { column: column, direction: 'asc' } };
+      }
+
+      if (prev.sorting.column === column) {
+        if (prev.sorting.direction === 'asc') {
+          return { ...prev, sorting: { column, direction: 'desc' } };
+        }
+
+        return { ...prev, sorting: null };
+      }
+
+      return { ...prev, sorting: { column, direction: 'asc' } };
+    });
+  }, []);
 
   const createUser = useCallback(
     async (user: UserCreateInput) => {
@@ -179,57 +199,16 @@ export const UsersProvider: FC<PropsWithChildren> = ({ children }) => {
     setState((prev) => ({ ...prev, pageSize }));
   }, []);
 
-  const setSorting = useCallback((sorting: Sorting) => {
-    setState((prev) => ({ ...prev, sorting }));
-  }, []);
-
-  const setGenderFilter = useCallback(
-    (genderFilter: 'male' | 'female' | null) => {
-      setState((prev) => ({ ...prev, genderFilter }));
-    },
-    []
-  );
-
-  const setIsActiveFilter = useCallback(
-    (isActiveFilter: 'active' | 'unactive' | null) => {
-      setState((prev) => ({ ...prev, isActiveFilter }));
-    },
-    []
-  );
-
-  const setAgeFrom = useCallback((ageFrom: number) => {
-    setState((prev) => ({ ...prev, ageFrom }));
-  }, []);
-
-  const setAgeTo = useCallback((ageTo: number) => {
-    setState((prev) => ({ ...prev, ageTo }));
-  }, []);
-
-  const setAgeRange = useCallback(([ageFrom, ageTo]: [number, number]) => {
-    setState((prev) => ({ ...prev, ageFrom, ageTo }));
-  }, []);
-
-  const clearAgeFilters = useCallback(() => {
-    setState((prev) => ({ ...prev, ageFrom: 18, ageTo: 200 }));
-  }, []);
-
   const context: UsersContextValue = {
     ...state,
-    search,
     createUser,
     updateUser,
     deleteUser,
     setPage,
     setPageSize,
     setEditingUser,
-    setSorting,
-    setSearch,
-    setGenderFilter,
-    setIsActiveFilter,
-    setAgeFrom,
-    setAgeTo,
-    setAgeRange,
-    clearAgeFilters,
+    setFilters,
+    triggerSorting,
   };
 
   return (
