@@ -11,6 +11,16 @@ const isAuthed = t.middleware((opts) => {
   return opts.next({ ctx });
 });
 
+const logger = t.middleware((opts) => {
+  const { ctx, path, rawInput, type } = opts;
+
+  console.log(`[${type}] ${path}`);
+  console.log(JSON.stringify(ctx, null, 2));
+  console.log(JSON.stringify(rawInput, null, 2));
+
+  return opts.next({ ctx });
+});
+
 export const router = t.router;
-export const publicProcedure = t.procedure;
-export const protectedProcedure = t.procedure.use(isAuthed);
+export const publicProcedure = t.procedure.use(logger);
+export const protectedProcedure = t.procedure.use(logger).use(isAuthed);

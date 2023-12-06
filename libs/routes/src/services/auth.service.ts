@@ -1,4 +1,4 @@
-import { AuthInput } from '@app/schemas';
+import { AuthInput } from '../schemas/auth.schema';
 import { DEFAULT_AUTH, DEFAULT_USER, SECRET_TOKEN } from '../utils/defaultAuth';
 
 export const login = async (auth: AuthInput) => {

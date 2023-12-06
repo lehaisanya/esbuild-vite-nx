@@ -14,9 +14,9 @@
     "lib": ["es2020", "dom"],
     "skipLibCheck": true,
     "skipDefaultLibCheck": true,
+    "strictNullChecks": true,
     "baseUrl": ".",
     "paths": {
-      "@app/schemas": ["libs/schemas/src/index.ts"],
       "@app/routes": ["libs/routes/src/index.ts"]
     }
   },

@@ -1,65 +1,47 @@
-import {
-  FC,
-  PropsWithChildren,
-  createContext,
-  useCallback,
-  useContext,
-  useState,
-} from 'react';
-import { api, setToken } from '../api/api';
-import type { AuthUser } from '@app/schemas';
+import { FC, PropsWithChildren, createContext, useContext } from 'react';
+import { AuthUser, AuthInput } from '@app/routes';
+import { trpc } from '../api/trpc';
+import { setToken } from '../api/tokenStorage';
 
-type AuthData = {
-  login: string;
-  password: string;
-};
-
-interface AuthContextState {
+interface AuthContextValue {
   loading: boolean;
+  loginLoading: boolean;
   user: AuthUser | null;
-}
-
-interface AuthContextValue extends AuthContextState {
-  loadUser: () => void;
-  login: (values: AuthData) => Promise<void>;
+  login: (values: AuthInput) => Promise<string | null>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue>(null!);
 
 export const AuthProvider: FC<PropsWithChildren> = ({ children }) => {
-  const [state, setState] = useState<AuthContextState>({
-    loading: true,
-    user: null,
+  const meQuery = trpc.auth.me.useQuery(undefined, {
+    refetchOnWindowFocus: false,
   });
+  const utils = trpc.useUtils();
 
-  const loadUser = useCallback(async () => {
-    const user = await api.auth.me.query();
-
-    setState({ user, loading: false });
-  }, []);
-
-  const login = async (values: AuthData) => {
-    const token = await api.auth.login.mutate(values);
-    setToken(token);
-    loadUser();
-  };
+  const loginMutation = trpc.auth.login.useMutation({
+    onSuccess: (data) => {
+      setToken(data);
+      if (data) {
+        utils.auth.me.invalidate();
+      }
+    },
+  });
 
   const logout = () => {
     setToken(null);
-    setState({ user: null, loading: false });
+    utils.auth.me.invalidate();
   };
 
-  const contextValue: AuthContextValue = {
-    ...state,
-    loadUser,
-    login,
+  const value: AuthContextValue = {
+    loading: meQuery.isFetching,
+    loginLoading: loginMutation.isLoading,
+    user: meQuery.data ?? null,
+    login: loginMutation.mutateAsync,
     logout,
   };
 
-  return (
-    <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export function useAuth() {

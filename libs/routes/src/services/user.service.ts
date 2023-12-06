@@ -1,18 +1,21 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { and, asc, desc, eq, gt, like, lt, or, sql } from 'drizzle-orm';
 import { db } from '../db/db';
 import {
   GetUserByIdInput,
   UserCreateInput,
+  UserCreateResponse,
+  UserCreateValidation,
   UserDeleteInput,
+  UserUpdateData,
   UserUpdateInput,
-  UsersQueryInput
-} from '@app/schemas';
-import { isSortableField, usersTable } from '../db/user.table';
+  UserUpdateResponse,
+  UserUpdateValidation,
+  UsersQueryInput,
+} from '../schemas/user.schema';
+import { isSortableField, usersTable } from '../db/tables/user.table';
+import { ErrorsBuilder } from '../types/errors';
 
 export const getManyUsers = async (query: UsersQueryInput) => {
-  console.log(query);
-
   const AND = [];
 
   if (query.search) {
@@ -54,7 +57,7 @@ export const getManyUsers = async (query: UsersQueryInput) => {
   if (query.sorting) {
     const field = query.sorting.column;
     if (isSortableField(field)) {
-      const dir = query.sorting.direction === 'desc' ? desc : asc;
+      const dir = query.sorting.direction === 'DESC' ? desc : asc;
       usersRequest = usersRequest.orderBy(dir(usersTable[field]));
     }
   }
@@ -68,12 +71,105 @@ export const getUserById = async ({ id }: GetUserByIdInput) => {
   return await db.select().from(usersTable).where(eq(usersTable.id, id));
 };
 
-export const createUser = async (data: UserCreateInput) => {
-  await db.insert(usersTable).values({ ...data, isActive: true });
+export const validateUserCreate = (
+  input: UserCreateInput
+): UserCreateValidation | null => {
+  const errors = new ErrorsBuilder<UserCreateInput>();
+
+  if (input.name === '') {
+    errors.add('name', { key: 'FIELD_IS_EMPTY' });
+  }
+
+  if (input.name.length > 100) {
+    errors.add('name', { key: 'FIELD_IS_TOO_LONG', maxLength: 100 });
+  }
+
+  if (input.company === '') {
+    errors.add('company', { key: 'FIELD_IS_EMPTY' });
+  }
+
+  if (input.company.length > 150) {
+    errors.add('company', { key: 'FIELD_IS_TOO_LONG', maxLength: 150 });
+  }
+
+  if (input.age < 18 || input.age > 200) {
+    errors.add('age', {
+      key: 'FIELD_IS_OUT_OF_RANGE',
+      from: 18,
+      to: 200,
+    });
+  }
+
+  return errors.build();
 };
 
-export const updateUser = async ({ id, update }: UserUpdateInput) => {
+export const createUser = async (
+  data: UserCreateInput
+): Promise<UserCreateResponse> => {
+  const errors = validateUserCreate(data);
+
+  if (errors)
+    return {
+      success: false,
+      errors,
+    };
+
+  await db.insert(usersTable).values({ ...data, isActive: true });
+
+  return { success: true, result: undefined };
+};
+
+export const validateUserUpdate = (
+  data: UserUpdateData
+): UserUpdateValidation | null => {
+  const errors = new ErrorsBuilder<UserUpdateData>();
+
+  if (data.name !== undefined) {
+    if (data.name === '') {
+      errors.add('name', { key: 'FIELD_IS_EMPTY' });
+    }
+    if (data.name.length > 100) {
+      errors.add('name', { key: 'FIELD_IS_TOO_LONG', maxLength: 100 });
+    }
+  }
+
+  if (data.company !== undefined) {
+    if (data.company === '') {
+      errors.add('company', { key: 'FIELD_IS_EMPTY' });
+    }
+    if (data.company.length > 150) {
+      errors.add('company', { key: 'FIELD_IS_TOO_LONG', maxLength: 150 });
+    }
+  }
+
+  if (data.age !== undefined) {
+    if (data.age < 18 || data.age > 200) {
+      errors.add('age', { key: 'FIELD_IS_OUT_OF_RANGE', from: 18, to: 200 });
+    }
+  }
+
+  return errors.build();
+};
+
+export const updateUser = async ({
+  id,
+  update,
+}: UserUpdateInput): Promise<UserUpdateResponse> => {
+  const errors = validateUserUpdate(update);
+
+  if (errors) {
+    return {
+      success: false,
+      errors,
+    };
+  }
+
   await db.update(usersTable).set(update).where(eq(usersTable.id, id));
+
+  return {
+    success: true,
+    result: undefined,
+  };
 };
 
 export const deleteUser = async ({ id }: UserDeleteInput) => {

@@ -1,40 +1,18 @@
-import { useEffect } from 'react';
-import { AppShell, Button, Group, Text } from '@mantine/core';
-import { useAuth } from '../context/auth.context';
-import { MainPage } from '../pages/MainPage';
-import { LoginPage } from '../pages/LoginPage';
-import { LoadingPage } from '../pages/LoadingPage';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { TRPCProvider, trpcClient } from '../api/trpc';
+import { AppPages } from './AppPages';
+import { AuthProvider } from '../context/auth.context';
 
-export function App() {
-  const { loading, user, loadUser, logout } = useAuth();
+const queryClient = new QueryClient();
 
-  useEffect(() => {
-    loadUser();
-  }, [loadUser]);
-
-  if (loading) {
-    return <LoadingPage />;
-  }
-
-  if (!user) {
-    return <LoginPage />;
-  }
-
+export const App = () => {
   return (
-    <AppShell header={{ height: 60 }}>
-      <AppShell.Header p="sm">
-        <Group justify="right" gap="lg">
-          <Text>{user.name}</Text>
-
-          <Button color="red.4" onClick={logout}>
-            Logout
-          </Button>
-        </Group>
-      </AppShell.Header>
-
-      <AppShell.Main>
-        <MainPage />
-      </AppShell.Main>
-    </AppShell>
+    <TRPCProvider client={trpcClient} queryClient={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <AppPages />
+        </AuthProvider>
+      </QueryClientProvider>
+    </TRPCProvider>
   );
-}
+};

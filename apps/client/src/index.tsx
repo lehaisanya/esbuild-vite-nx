@@ -1,10 +1,12 @@
 import { StrictMode } from 'react';
 import * as ReactDOM from 'react-dom/client';
 import { MantineProvider } from '@mantine/core';
+import { Notifications } from '@mantine/notifications';
 import { App } from './app/App';
-import { AuthProvider } from './context/auth.context';
+import './i18n';
 
 import '@mantine/core/styles.css';
+import '@mantine/notifications/styles.css';
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
@@ -13,9 +15,8 @@ const root = ReactDOM.createRoot(
 root.render(
   <StrictMode>
     <MantineProvider>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
+      <Notifications />
+      <App />
     </MantineProvider>
   </StrictMode>
 );

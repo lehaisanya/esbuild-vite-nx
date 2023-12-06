@@ -2,220 +2,160 @@ import {
   FC,
   PropsWithChildren,
   createContext,
-  useCallback,
   useContext,
-  useEffect,
   useState,
 } from 'react';
-import type { User } from '@app/routes';
-import { UserCreateInput, UserUpdateData, UsersQueryInput } from '@app/schemas';
-import { api } from '../api/api';
-
-export interface Sorting {
-  column: string;
-  direction: 'asc' | 'desc';
-}
+import {
+  User,
+  UserSortingField,
+  UsersQueryInput,
+  UsersSorting,
+} from '@app/routes';
+import { trpc } from '../api/trpc';
 
 export interface UsersFilters {
   search: string;
   gender: 'male' | 'female' | null;
   isActive: 'active' | 'unactive' | null;
-  age: [number, number];
+  ageFrom: number;
+  ageTo: number;
 }
 
-interface UsersContextState {
-  loadingUsers: boolean;
-  loadingEditableUser: boolean;
+export const defaultFilters: UsersFilters = {
+  search: '',
+  ageFrom: 18,
+  ageTo: 200,
+  gender: null,
+  isActive: null,
+};
+
+interface UsersContextValue {
+  loading: boolean;
   users: User[];
   count: number;
-  editableUser: User | null;
   page: number;
   pageSize: number;
   filters: UsersFilters;
-  sorting: Sorting | null;
-}
-
-interface UsersContextValue extends UsersContextState {
-  createUser: (user: UserCreateInput) => Promise<void>;
-  updateUser: (id: number, update: UserUpdateData) => Promise<void>;
-  deleteUser: (id: number) => Promise<void>;
-  setEditingUser: (id: number) => Promise<void>;
-  setPage: (newPage: number) => void;
+  sorting: UsersSorting | null;
+  selectedColumns: UserSortingField[];
+  setPage: (page: number) => void;
   setPageSize: (pageSize: number) => void;
   setFilters: (filters: UsersFilters) => void;
-  triggerSorting: (column: string) => void;
+  setSorting: (sorting: UsersSorting | null) => void;
+  setSelectedColumns: (columns: UserSortingField[]) => void;
 }
 
 const UsersContext = createContext<UsersContextValue>(null!);
 
-const defaultContextState: UsersContextState = {
-  loadingUsers: true,
-  loadingEditableUser: false,
-  users: [],
-  editableUser: null,
-  page: 1,
-  pageSize: 15,
-  count: 0,
-  sorting: null,
-  filters: {
-    search: '',
-    age: [18, 200],
-    gender: null,
-    isActive: null,
-  },
-};
-
 export const UsersProvider: FC<PropsWithChildren> = ({ children }) => {
-  const [state, setState] = useState<UsersContextState>(defaultContextState);
-
-  const fetchUsers = useCallback(async () => {
-    setState((prev) => ({ ...prev, loadingUsers: true }));
-
-    const query: UsersQueryInput = {
-      limit: state.pageSize,
-    };
-
-    if (state.page !== 1) {
-      query.offset = (state.page - 1) * state.pageSize;
-    }
-
-    if (state.filters.search) {
-      query.search = state.filters.search;
-    }
-
-    if (state.sorting) {
-      query.sorting = {
-        column: state.sorting.column,
-        direction: state.sorting.direction,
-      };
-    }
-
-    if (state.filters.gender) {
-      query.gender = state.filters.gender;
-    }
-
-    if (state.filters.isActive) {
-      query.isActive = state.filters.isActive === 'active';
-    }
-
-    const [ageFrom, ageTo] = state.filters.age;
-    if (ageFrom !== 18) {
-      query.ageFrom = ageFrom;
-    }
-
-    if (ageTo !== 200) {
-      query.ageTo = ageTo;
-    }
-
-    const { count, users } = await api.user.getUsers.query(query);
-
-    setState((prev) => ({
-      ...prev,
-      count,
-      users,
-      loadingUsers: false,
-    }));
-  }, [
-    state.page,
-    state.pageSize,
-    state.sorting,
-    state.filters.search,
-    state.filters.gender,
-    state.filters.isActive,
-    state.filters.age[0],
-    state.filters.age[1],
+  const [page, setPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [filters, setFilters] = useState<UsersFilters>(defaultFilters);
+  const [sorting, setSorting] = useState<UsersSorting | null>(null);
+  const [selectedColumns, setSelectedColumns] = useState<UserSortingField[]>([
+    'name',
+    'age',
+    'gender',
+    'company',
+    'isActive',
   ]);
 
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+  const queryParams: UsersQueryInput = {
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
+  };
 
-  const setFilters = useCallback((filters: UsersFilters) => {
-    setState((prev) => {
-      return { ...prev, filters };
-    });
-  }, []);
+  if (sorting) {
+    queryParams.sorting = sorting;
+  }
 
-  const triggerSorting = useCallback((column: string) => {
-    setState((prev) => {
-      if (!prev.sorting) {
-        return { ...prev, sorting: { column: column, direction: 'asc' } };
-      }
+  if (filters.search) {
+    queryParams.search = filters.search;
+  }
 
-      if (prev.sorting.column === column) {
-        if (prev.sorting.direction === 'asc') {
-          return { ...prev, sorting: { column, direction: 'desc' } };
-        }
+  if (filters.gender) {
+    queryParams.gender = filters.gender;
+  }
 
-        return { ...prev, sorting: null };
-      }
+  if (filters.isActive) {
+    queryParams.isActive = filters.isActive === 'active';
+  }
 
-      return { ...prev, sorting: { column, direction: 'asc' } };
-    });
-  }, []);
+  if (filters.ageFrom !== 18) {
+    queryParams.ageFrom = filters.ageFrom;
+  }
 
-  const createUser = useCallback(
-    async (user: UserCreateInput) => {
-      await api.user.createUser.mutate(user);
-      await fetchUsers();
-    },
-    [fetchUsers]
-  );
+  if (filters.ageTo !== 200) {
+    queryParams.ageTo = filters.ageTo;
+  }
 
-  const updateUser = useCallback(
-    async (id: number, update: UserUpdateData) => {
-      await api.user.updateUser.mutate({ id, update });
-      await fetchUsers();
-    },
-    [fetchUsers]
-  );
+  const usersQuery = trpc.user.getUsers.useQuery(queryParams, {
+    keepPreviousData: true,
+  });
 
-  const deleteUser = useCallback(
-    async (id: number) => {
-      await api.user.deleteUser.mutate({ id });
-      await fetchUsers();
-    },
-    [fetchUsers]
-  );
-
-  const setEditingUser = useCallback(async (id: number) => {
-    setState((prev) => ({
-      ...prev,
-      loadingEditableUser: true,
-    }));
-    const editableUser = await api.user.getUserById.query({ id });
-    setState((prev) => ({
-      ...prev,
-      loadingEditableUser: false,
-      editableUser,
-    }));
-  }, []);
-
-  const setPage = useCallback((page: number) => {
-    setState((prev) => ({ ...prev, page }));
-  }, []);
-
-  const setPageSize = useCallback((pageSize: number) => {
-    setState((prev) => ({ ...prev, pageSize }));
-  }, []);
-
-  const context: UsersContextValue = {
-    ...state,
-    createUser,
-    updateUser,
-    deleteUser,
+  const contextValue: UsersContextValue = {
+    loading: usersQuery.isFetching,
+    users: usersQuery.data?.users ?? [],
+    count: usersQuery.data?.count ?? 0,
+    page,
+    pageSize,
+    filters,
+    sorting,
+    selectedColumns,
     setPage,
-    setPageSize,
-    setEditingUser,
-    setFilters,
-    triggerSorting,
+    setSorting,
+    setPageSize: (pageSize: number) => {
+      setPage(1);
+      setPageSize(pageSize);
+    },
+    setFilters: (filters) => {
+      setPage(1);
+      setFilters(filters);
+    },
+    setSelectedColumns,
   };
 
   return (
-    <UsersContext.Provider value={context}>{children}</UsersContext.Provider>
+    <UsersContext.Provider value={contextValue}>
+      {children}
+    </UsersContext.Provider>
   );
 };
 
 export function useUsers() {
   return useContext(UsersContext);
+}
+
+export function useCreateUserMutation() {
+  const utils = trpc.useUtils();
+
+  return trpc.user.createUser.useMutation({
+    onSuccess: (result) => {
+      if (result.success) {
+        utils.user.getUsers.invalidate();
+      }
+    },
+  });
+}
+
+export function useUpdateUserMutation() {
+  const utils = trpc.useUtils();
+
+  return trpc.user.updateUser.useMutation({
+    onSuccess: (result) => {
+      if (result.success) {
+        utils.user.getUsers.invalidate();
+      }
+    },
+  });
+}
+
+export function useDeleteUserMutation() {
+  const utils = trpc.useUtils();
+
+  return trpc.user.deleteUser.useMutation({
+    onSuccess: (result) => {
+      utils.user.getUsers.invalidate();
+    },
+  });
 }

@@ -1,6 +1,6 @@
 import { inferAsyncReturnType } from '@trpc/server';
 import { CreateExpressContextOptions } from '@trpc/server/adapters/express';
-import { AuthUser } from '@app/schemas';
+import { AuthUser } from '../schemas/auth.schema';
 import { getAuthUser } from '../services/auth.service';
 
 async function getUser(

@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server';
-import { AuthInput, AuthUser } from '@app/schemas';
+import { AuthInput, AuthUser } from '../schemas/auth.schema';
 import { Context } from '../trpc/context';
 import { login } from '../services/auth.service';
 
@@ -9,7 +9,7 @@ export const meHandler = async ({ ctx }: { ctx: Context }) => {
 
 export const loginHandler = async ({
   input,
-  ctx
+  ctx,
 }: {
   input: AuthInput;
   ctx: Context;

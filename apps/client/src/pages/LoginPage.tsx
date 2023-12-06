@@ -10,15 +10,28 @@ import {
 import { useForm } from '@mantine/form';
 import { useAuth } from '../context/auth.context';
 
+const initialValues = {
+  login: 'test',
+  password: '12345',
+};
+
 export const LoginPage = () => {
-  const { login } = useAuth();
+  const { loginLoading, login } = useAuth();
 
   const form = useForm({
-    initialValues: {
-      login: 'test',
-      password: '12345',
-    },
+    initialValues,
     clearInputErrorOnChange: true,
+  });
+
+  const onSubmit = form.onSubmit(async (values) => {
+    try {
+      const res = await login(values);
+      if (!res) throw res;
+    } catch (err) {
+      form.setErrors({
+        form: 'Invalid login or password',
+      });
+    }
   });
 
   return (
@@ -26,35 +39,29 @@ export const LoginPage = () => {
       <Paper withBorder shadow="lg" w={400} p="md">
         <Text size="xl">Sign in</Text>
 
-        <form
-          onSubmit={form.onSubmit(async (values) => {
-            try {
-              await login(values);
-            } catch (error) {
-              form.setErrors({
-                form: 'Invalid login or password',
-              });
-            }
-          })}
-        >
+        <form onSubmit={onSubmit}>
           <Stack>
             <TextInput
               label="Login"
               placeholder="test"
               {...form.getInputProps('login')}
+              error={!!form.errors.form}
             />
 
             <PasswordInput
               label="Password"
               placeholder="12345"
               {...form.getInputProps('password')}
+              error={!!form.errors.form}
             />
 
             <Text hidden={!form.errors.form} color="red">
               {form.errors.form}
             </Text>
 
-            <Button type="submit">Sign in</Button>
+            <Button type="submit" loading={loginLoading}>
+              Sign in
+            </Button>
           </Stack>
         </form>
       </Paper>

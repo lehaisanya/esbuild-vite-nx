@@ -4,14 +4,14 @@ import {
   userCreateSchema,
   userDeleteSchema,
   userUpdateSchema,
-  usersQuerySchema
-} from '@app/schemas';
+  usersQuerySchema,
+} from '../schemas/user.schema';
 import {
   createUserHandler,
   deleteUserHandler,
   getUserByIdHandler,
   getUsersHandler,
-  updateUserHandler
+  updateUserHandler,
 } from '../controllers/user.controller';
 
 export const userRouter = router({
@@ -27,7 +27,7 @@ export const userRouter = router({
     .mutation(updateUserHandler),
   deleteUser: protectedProcedure
     .input(userDeleteSchema)
-    .mutation(deleteUserHandler)
+    .mutation(deleteUserHandler),
 });
 
 export type UsersRouter = typeof userRouter;

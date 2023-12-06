@@ -4,31 +4,30 @@ import {
   UserCreateInput,
   UserDeleteInput,
   UserUpdateInput,
-  UsersQueryInput
-} from '@app/schemas';
+  UsersQueryInput,
+} from '../schemas/user.schema';
 import {
   createUser,
   deleteUser,
   getManyUsers,
   getUserById,
-  updateUser
+  updateUser,
 } from '../services/user.service';
 
 export const getUsersHandler = async ({
-  input
+  input,
 }: {
   input: UsersQueryInput;
 }) => {
   try {
     return await getManyUsers(input);
   } catch (error) {
-    console.log(error);
     throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
   }
 };
 
 export const getUserByIdHandler = async ({
-  input
+  input,
 }: {
   input: GetUserByIdInput;
 }) => {
@@ -45,31 +44,31 @@ export const getUserByIdHandler = async ({
 };
 
 export const createUserHandler = async ({
-  input
+  input,
 }: {
   input: UserCreateInput;
 }) => {
   try {
-    await createUser(input);
+    return await createUser(input);
   } catch (error) {
     throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
   }
 };
 
 export const updateUserHandler = async ({
-  input
+  input,
 }: {
   input: UserUpdateInput;
 }) => {
   try {
-    await updateUser(input);
+    return await updateUser(input);
   } catch (error) {
     throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
   }
 };
 
 export const deleteUserHandler = async ({
-  input
+  input,
 }: {
   input: UserDeleteInput;
 }) => {
